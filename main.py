@@ -1,15 +1,19 @@
 import logging
+import schedule
+import time
 
 from datetime import datetime
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext, CommandHandler, Updater, CallbackQueryHandler
+from telegram.ext import CallbackContext, CommandHandler, Updater, CallbackQueryHandler, MessageHandler, Filters
 
 #You have to create 'tokens.py' in the same folder as this file, and there declare
 #two strings, 'discordToken' and 'telegramToken', and assign them the correct values.
 #The file is not commited to avoid uploading the tokens to the git repository.
 from tokens import token
 from data import runningOperations
-from registration import register
+from registration import register, continueRegistration
+from stUtils import getId
+import preferences
 
 from openpyxl import load_workbook
 
@@ -46,9 +50,9 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text("ciao")
 
 #Add time for today
-def insertTime(update: Update, context: CallbackContext):
+def insertTime(update: Update, context: CallbackContext, userId: str = None):
     
-    if not checkArguments(update, context, False):
+    if update and context and not checkArguments(update, context, False):
         return
 
     keyboard = [[InlineKeyboardButton('0', callback_data='h:0')],
@@ -65,7 +69,12 @@ def insertTime(update: Update, context: CallbackContext):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     message_reply_text = 'Quante ore hai \"lavorato\" oggi?'
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message_reply_text, reply_markup=reply_markup)
+
+    if update:
+        id = update.effective_user.id
+    else:
+        id = userId
+    updater.bot.send_message(chat_id=id, text=message_reply_text, reply_markup=reply_markup)
     
 
 #Save the selected number of hours and ask for the minutes
@@ -148,14 +157,21 @@ def convertMinutes(minutes: str):
     elif minutes == '45':
         return ',75'
 
-def getId(update: Update):
-    return str(update.effective_user.id)
-
-
-
+def forwarder(update: Update, context: CallbackContext):
+    userId = getId(update)
+    state = int(preferences.loadConfig(userId, preferences.KEY_STATE))
+    if state != None and state < 2:
+        continueRegistration(update, context, state)
+    else:
+        text = "Usa uno dei comandi disponibili!"
+        context.bot.send_message(chat_id=userId, text=text)
 
 # Script start
 dispatcher = updater.dispatcher
+
+#Analyze all messages that are not commands
+forwardHandler = MessageHandler(Filters.text & (~Filters.command), forwarder)
+dispatcher.add_handler(forwardHandler)
 
 # /start command
 startHandler = CommandHandler('start', start)
@@ -174,3 +190,14 @@ dispatcher.add_handler(CallbackQueryHandler(buttonPressed))
 
 # Start Telegram bot
 updater.start_polling()
+
+def sendQuestions():
+    users = preferences.getSections()
+    for user in users:
+       insertTime(None, None, userId=user) 
+
+schedule.every().day.at('20:00').do(sendQuestions)
+
+while True:
+    schedule.run_pending()
+    time.sleep(30)

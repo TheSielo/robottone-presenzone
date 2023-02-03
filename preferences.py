@@ -9,23 +9,32 @@ from sys import maxsize
 SECONDS_IN_A_DAY = 86400
 
 CONFIG_FILE = 'config.ini'
-CONFIG_SECTION = 'main'
+KEY_STATE = 'state'
+KEY_NAME = 'name'
+
+STATE_NEW = 1
+STATE_REGISTERED = 2
 
 config = ConfigParser()
 config.read(CONFIG_FILE)
 
-if not config.has_section(CONFIG_SECTION):
-    config.add_section(CONFIG_SECTION)
+def getSections():
+    return config.sections()
+
+def checkSection(section: str):
+    if not config.has_section(section):
+        config.add_section(section)
+    saveConfig(section, KEY_STATE, STATE_NEW)
 
 # Store a value in preferences.
-def saveConfig(key, value):
-    config.set(CONFIG_SECTION, key, str(value))
+def saveConfig(section, key, value):
+    config.set(section, key, str(value))
     with open(CONFIG_FILE, 'w') as f:
         config.write(f)
 
 # Load a value form preferences.
-def loadConfig(key):
-    if config.has_option(CONFIG_SECTION, key):
-        return config.get(CONFIG_SECTION, key)
+def loadConfig(section, key):
+    if config.has_option(section, key):
+        return config.get(section, key)
     else:
         return None
