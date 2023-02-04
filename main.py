@@ -114,8 +114,9 @@ def buttonPressed(update: Update, context: CallbackContext):
         runningOperations[userId]['t'] = value
 
         date = datetime.today()
-        if date.weekday() == 4:
-            text = 'Grazie! A Lunedì!'
+        weekend = [4,5,6]
+        if date.weekday() in weekend:
+            text = 'Grazie! A Lunedì! (Spero)'
         else:
             text = 'Grazie! A domani!'
 
@@ -130,37 +131,60 @@ def writeToday(update: Update, date: datetime):
     minutes = runningOperations[userId]['m']
     type = runningOperations[userId]['t']
 
-    if minutes == 0:
+    if int(minutes) == 0:
         remainingHours = str(8 - int(hours))
+        remainingMinutes = 0
     else:
         remainingHours = str(7 - int(hours))
+        remainingMinutes = str(60 - int(minutes))
 
-    remainingMinutes = str(60 - int(minutes))
 
-    wb = load_workbook(filename='presenze.xlsx')
+    filename = preferences.getUserFile(userId)
+    wb = load_workbook(filename=filename)
     ws = wb.worksheets[date.month-1]
-    ws.cell(row=date.day+9, column=3).value = ("%s%s" % (hours, convertMinutes(minutes)))
+    
+    ws.cell(row=date.day+9, column=3).value = ("%s%s" % (hours, convertMinutes(int(minutes))))
     if type == '0':
         remainingCol = 4
     else:
         remainingCol = 5
-    ws.cell(row=date.day+9, column=remainingCol).value = ("%s%s" % (remainingHours, convertMinutes(remainingMinutes)))
-    wb.save('presenze.xlsx')
+    ws['c4'] = preferences.loadConfig(userId, preferences.KEY_USER_NAME)
+    ws['c6'] = preferences.loadConfig(userId, preferences.KEY_MANAGER_NAME)
+    ws.cell(row=date.day+9, column=remainingCol).value = ("%s%s" % (remainingHours, convertMinutes(int(remainingMinutes))))
+    wb.save(filename)
+
+    if isLastDayOfTheMonth(date):
+        sendSheet(None, None, userId)
+
+def isLastDayOfTheMonth(date: datetime):
+    return False
+
     
-def convertMinutes(minutes: str):
-    if minutes == '00':
+def convertMinutes(minutes: int):
+    print(minutes)
+    if minutes == 0:
         return ''
-    elif minutes == '15':
+    elif minutes == 15:
         return ',25'
-    elif minutes == '30':
+    elif minutes == 30:
         return ',50'
-    elif minutes == '45':
+    elif minutes == 45:
         return ',75'
+
+
+def sendSheet(update: Update, context: CallbackContext, userId: str = None):
+    if update:
+        user = getId(update)
+    else:
+        user = userId
+    document = open(preferences.getUserFile(userId), 'rb')
+    updater.bot.send_document(chat_id=user, document=document, filename='Foglio presenze.xlsx')
+
 
 def forwarder(update: Update, context: CallbackContext):
     userId = getId(update)
     state = int(preferences.loadConfig(userId, preferences.KEY_STATE))
-    if state != None and state < 2:
+    if state != None and state < preferences.STATE_REGISTERED:
         continueRegistration(update, context, state)
     else:
         text = "Usa uno dei comandi disponibili!"
@@ -172,6 +196,9 @@ dispatcher = updater.dispatcher
 #Analyze all messages that are not commands
 forwardHandler = MessageHandler(Filters.text & (~Filters.command), forwarder)
 dispatcher.add_handler(forwardHandler)
+
+# Buttons callback
+dispatcher.add_handler(CallbackQueryHandler(buttonPressed))
 
 # /start command
 startHandler = CommandHandler('start', start)
@@ -185,8 +212,9 @@ dispatcher.add_handler(registerHandler)
 insertHandler = CommandHandler('insert', insertTime)
 dispatcher.add_handler(insertHandler)
 
-# Buttons callback
-dispatcher.add_handler(CallbackQueryHandler(buttonPressed))
+# /send sheet command
+sendSheetHandler = CommandHandler('sendme', sendSheet)
+dispatcher.add_handler(sendSheetHandler)
 
 # Start Telegram bot
 updater.start_polling()
@@ -196,7 +224,13 @@ def sendQuestions():
     for user in users:
        insertTime(None, None, userId=user) 
 
-schedule.every().day.at('20:00').do(sendQuestions)
+
+TIME = '17:00'
+schedule.every().monday.at(TIME).do(sendQuestions)
+schedule.every().tuesday.at(TIME).do(sendQuestions)
+schedule.every().wednesday.at(TIME).do(sendQuestions)
+schedule.every().thursday.at(TIME).do(sendQuestions)
+schedule.every().friday.at(TIME).do(sendQuestions)
 
 while True:
     schedule.run_pending()

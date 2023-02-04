@@ -1,3 +1,4 @@
+import os
 from configparser import ConfigParser
 from requests import get
 from time import time
@@ -6,14 +7,16 @@ from sys import maxsize
 # Some simple helper functions to store and load basic
 # configuration keys.
 
-SECONDS_IN_A_DAY = 86400
+SHEET_PATH = 'documents/'
 
 CONFIG_FILE = 'config.ini'
 KEY_STATE = 'state'
-KEY_NAME = 'name'
+KEY_USER_NAME = 'user_name'
+KEY_MANAGER_NAME = 'manager_name'
 
 STATE_NEW = 1
-STATE_REGISTERED = 2
+STATE_USER_NAME = 2
+STATE_REGISTERED = 3
 
 config = ConfigParser()
 config.read(CONFIG_FILE)
@@ -38,3 +41,9 @@ def loadConfig(section, key):
         return config.get(section, key)
     else:
         return None
+
+def getUserFile(userId: str):
+    if not os.path.exists(SHEET_PATH):
+        os.makedirs(SHEET_PATH)
+
+    return SHEET_PATH + userId + '.xlsx'
