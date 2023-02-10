@@ -23,8 +23,12 @@ telegramBot: Bot = Bot(token)
 updater = Updater(token=token, use_context=True)  
 
 
-START_EXPLANATION = '''Per tutti i Marselli che ci seguono da casa:\n\n
-/start - Display commands info.\n\n
+START_EXPLANATION = '''Drin Dron Robotton:\n\n
+Prima di tutto, esegui la registrazione con il comando /register, altrimenti non riuscirai a fare un piffero di niente!\n\n
+/start - Mostra le info che stai leggendo proprio ora.\n\n
+/register - Registrati per inserire i tuoi dati e iniziare a utilizzare il Robottone Presenzone.\n\n
+/insert - Inserisci manualmente gli orari di oggi senza aspettare l'intervento del Robottone Presenzone.\n\n
+/sendme - Scarica il Foglione Presenzone senza attendere che ti venga inviato dal Robottone.\n\n
 '''
 
 #Check that makes sense to continue executing the command.
@@ -42,12 +46,13 @@ def checkArguments(update, context, hasArgs):
 
     return True
 
+
 #Show handy instruction about using this bot.
 def start(update: Update, context: CallbackContext):
     if not checkArguments(update, context, False):
         return
 
-    update.message.reply_text("ciao")
+    update.message.reply_text(START_EXPLANATION)
 
 #Add time for today
 def insertTime(update: Update, context: CallbackContext, userId: str = None):
@@ -177,7 +182,7 @@ def sendSheet(update: Update, context: CallbackContext, userId: str = None):
         user = getId(update)
     else:
         user = userId
-    document = open(preferences.getUserFile(userId), 'rb')
+    document = open(preferences.getUserFile(user), 'rb')
     updater.bot.send_document(chat_id=user, document=document, filename='Foglio presenze.xlsx')
 
 
@@ -187,7 +192,7 @@ def forwarder(update: Update, context: CallbackContext):
     if state != None and state < preferences.STATE_REGISTERED:
         continueRegistration(update, context, state)
     else:
-        text = "Usa uno dei comandi disponibili!"
+        text = "Usa uno dei comandi disponibili! Se non ti sei ancora registrato, inizia la registrazione eseguendo il comando /register!"
         context.bot.send_message(chat_id=userId, text=text)
 
 # Script start
@@ -225,7 +230,7 @@ def sendQuestions():
        insertTime(None, None, userId=user) 
 
 
-TIME = '17:00'
+TIME = '19:00'
 schedule.every().monday.at(TIME).do(sendQuestions)
 schedule.every().tuesday.at(TIME).do(sendQuestions)
 schedule.every().wednesday.at(TIME).do(sendQuestions)
