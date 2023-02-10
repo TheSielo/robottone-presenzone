@@ -1,4 +1,4 @@
 __pycache__/
 documents/
-presenze.xlsx
 config.ini
+tokens.py
