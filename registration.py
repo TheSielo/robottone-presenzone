@@ -24,8 +24,11 @@ def continueRegistration(update: Update, context: CallbackContext, state: int):
         elif state == preferences.STATE_USER_NAME:
             preferences.saveConfig(userId, preferences.KEY_MANAGER_NAME, update.message.text)
             preferences.saveConfig(userId, preferences.KEY_STATE, preferences.STATE_REGISTERED)
-            text = ('Wow! Ma che nome bellissimo!\n\nOgni giorno alle 19:00 ti chiederò ' +
+            text = ('Wow! Ma che nomi incredbili!\n\n' +
+            'Tieniti forte! La tua personalissima avventura nel mondo dei Pokèmon sta per cominciare! '
+            'Ogni giorno alle 19:00 ti chiederò ' +
             'un resoconto della giornata e compilerò il tuo Foglione Presenzone in automagico!\n\n' +
+            'Se ti piacerebbe vedere nuove funzionalità mancanti, impara a programmare e fattele!\n\n' +
             'CIAOOOOOOOOOOOOOOOOOOOO!!! EBBBUONNATAAALEEE!!!!!!')
 
         context.bot.send_message(chat_id=userId, text=text)

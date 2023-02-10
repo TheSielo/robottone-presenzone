@@ -22,6 +22,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 telegramBot: Bot = Bot(token)
 updater = Updater(token=token, use_context=True)  
 
+TYPE_NO_REMAINING = 0
+TYPE_HOLIDAY = 1
+TYPE_ILLNESS = 2
 
 START_EXPLANATION = '''Drin Dron Robotton:\n\n
 Prima di tutto, esegui la registrazione con il comando /register, altrimenti non riuscirai a fare un piffero di niente!\n\n
@@ -95,8 +98,8 @@ def setMinutes(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=update.effective_chat.id, text=message_reply_text, reply_markup=reply_markup)
 
 def setType(update: Update, context: CallbackContext):
-    keyboard = [[InlineKeyboardButton('Ferie', callback_data='t:0'),
-            InlineKeyboardButton('Malattia', callback_data='t:1')]]
+    keyboard = [[InlineKeyboardButton('Ferie', callback_data='t:1'),
+            InlineKeyboardButton('Malattia', callback_data='t:2')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     message_reply_text = 'Come segno le ore rimanenti?'
@@ -114,34 +117,29 @@ def buttonPressed(update: Update, context: CallbackContext):
         setMinutes(update, context)
     elif command == 'm':
         runningOperations[userId]['m'] = value
-        setType(update, context)
+        hours = runningOperations[userId]['h']
+        if int(hours) >= 8:
+            runningOperations[userId]['t'] = TYPE_NO_REMAINING
+            writeToday(update, context)
+        else:
+            setType(update, context)
     elif command == 't':
         runningOperations[userId]['t'] = value
-
-        date = datetime.today()
-        weekend = [4,5,6]
-        if date.weekday() in weekend:
-            text = 'Grazie! A Lunedì! (Spero)'
-        else:
-            text = 'Grazie! A domani!'
-
-        writeToday(update, date)
-        runningOperations.pop(userId, None)
-        context.bot.send_message(chat_id=getId(update), text=text)
+        writeToday(update, context)
 
 
-def writeToday(update: Update, date: datetime):
+def writeToday(update: Update, context: CallbackContext):
+    date = datetime.today()
+    weekend = [4,5,6]
+    if date.weekday() in weekend:
+        text = 'Grazie! A Lunedì! (Spero)'
+    else:
+        text = 'Grazie! A domani!'
+    
     userId = getId(update)
     hours = runningOperations[userId]['h']
     minutes = runningOperations[userId]['m']
     type = runningOperations[userId]['t']
-
-    if int(minutes) == 0:
-        remainingHours = str(8 - int(hours))
-        remainingMinutes = 0
-    else:
-        remainingHours = str(7 - int(hours))
-        remainingMinutes = str(60 - int(minutes))
 
 
     filename = preferences.getUserFile(userId)
@@ -149,17 +147,31 @@ def writeToday(update: Update, date: datetime):
     ws = wb.worksheets[date.month-1]
     
     ws.cell(row=date.day+9, column=3).value = ("%s%s" % (hours, convertMinutes(int(minutes))))
-    if type == '0':
-        remainingCol = 4
-    else:
-        remainingCol = 5
     ws['c4'] = preferences.loadConfig(userId, preferences.KEY_USER_NAME)
     ws['c6'] = preferences.loadConfig(userId, preferences.KEY_MANAGER_NAME)
-    ws.cell(row=date.day+9, column=remainingCol).value = ("%s%s" % (remainingHours, convertMinutes(int(remainingMinutes))))
+
+    if int(type) != TYPE_NO_REMAINING:
+        if int(minutes) == 0:
+            remainingHours = str(8 - int(hours))
+            remainingMinutes = 0
+        else:
+            remainingHours = str(7 - int(hours))
+            remainingMinutes = str(60 - int(minutes))
+
+        if int(type) == TYPE_HOLIDAY:
+            remainingCol = 4
+        elif int(type) == TYPE_ILLNESS:
+            remainingCol = 5
+
+        ws.cell(row=date.day+9, column=remainingCol).value = ("%s%s" % (remainingHours, convertMinutes(int(remainingMinutes))))
+    
     wb.save(filename)
 
     if isLastDayOfTheMonth(date):
         sendSheet(None, None, userId)
+
+    runningOperations.pop(userId, None)
+    context.bot.send_message(chat_id=getId(update), text=text)
 
 def isLastDayOfTheMonth(date: datetime):
     return False
