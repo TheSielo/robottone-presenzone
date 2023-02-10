@@ -76,7 +76,7 @@ def insertTime(update: Update, context: CallbackContext, userId: str = None):
     
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    message_reply_text = 'Quante ore hai \"lavorato\" oggi?'
+    message_reply_text = 'Quante ore hai lavorato oggi?'
 
     if update:
         id = update.effective_user.id
