@@ -1,8 +1,5 @@
 import os
 from configparser import ConfigParser
-from requests import get
-from time import time
-from sys import maxsize
 
 # Some simple helper functions to store and load basic
 # configuration keys.
@@ -17,6 +14,8 @@ KEY_MANAGER_NAME = 'manager_name'
 STATE_NEW = 1
 STATE_USER_NAME = 2
 STATE_REGISTERED = 3
+STATE_INSERTING = 4
+STATE_EDITING = 5
 
 config = ConfigParser()
 config.read(CONFIG_FILE)
@@ -42,8 +41,19 @@ def loadConfig(section, key):
     else:
         return None
 
-def getUserFile(userId: str):
+def deleteUserConfig(userId: str):
+    config.remove_section(userId)
+    with open(CONFIG_FILE, "w") as f:
+        config.write(f)
+
+def getUserFile(userId: str) -> str:
     if not os.path.exists(SHEET_PATH):
         os.makedirs(SHEET_PATH)
 
     return SHEET_PATH + userId + '.xlsx'
+
+def getState(userId: str) -> int:
+    return int(loadConfig(userId, KEY_STATE))
+
+def setState(userId: str, value: int):
+    saveConfig(userId, KEY_STATE, value)

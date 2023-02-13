@@ -11,7 +11,7 @@ from telegram.ext import CallbackContext, CommandHandler, Updater, CallbackQuery
 #The file is not commited to avoid uploading the tokens to the git repository.
 from tokens import token
 from data import runningOperations
-from registration import register, continueRegistration
+from registration import register, continueRegistration, deleteUser
 from stUtils import getId
 import preferences
 
@@ -30,7 +30,9 @@ START_EXPLANATION = '''Drin Dron Robotton:\n\n
 Prima di tutto, esegui la registrazione con il comando /register, altrimenti non riuscirai a fare un piffero di niente!\n\n
 /start - Mostra le info che stai leggendo proprio ora.\n\n
 /register - Registrati per inserire i tuoi dati e iniziare a utilizzare il Robottone Presenzone.\n\n
+/delete - Elimina i tuoi dati e cancella la tua utenza.\n\n
 /insert - Inserisci manualmente gli orari di oggi senza aspettare l'intervento del Robottone Presenzone.\n\n
+/edit - Modifica le ore per un giorno specifico selezionato.\n\n
 /sendme - Scarica il Foglione Presenzone senza attendere che ti venga inviato dal Robottone.\n\n
 '''
 
@@ -59,30 +61,75 @@ def start(update: Update, context: CallbackContext):
 
 #Add time for today
 def insertTime(update: Update, context: CallbackContext, userId: str = None):
-    
-    if update and context and not checkArguments(update, context, False):
-        return
-
-    keyboard = [[InlineKeyboardButton('0', callback_data='h:0')],
-            [InlineKeyboardButton('1', callback_data='h:1'),
-            InlineKeyboardButton('2', callback_data='h:2'),
-            InlineKeyboardButton('3', callback_data='h:3'),
-            InlineKeyboardButton('4', callback_data='h:4')],
-
-            [InlineKeyboardButton('5', callback_data='h:5'),
-            InlineKeyboardButton('6', callback_data='h:6'),
-            InlineKeyboardButton('7', callback_data='h:7'),
-            InlineKeyboardButton('8', callback_data='h:8')]]
-    
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    message_reply_text = 'Quante ore hai lavorato oggi?'
-
     if update:
-        id = update.effective_user.id
+        id = getId(update)
     else:
         id = userId
-    updater.bot.send_message(chat_id=id, text=message_reply_text, reply_markup=reply_markup)
+
+    
+    if checkState(context, id):
+        state = preferences.getState(id)
+        if state != preferences.STATE_EDITING:
+            preferences.setState(userId, preferences.STATE_INSERTING)
+
+        keyboard = [[InlineKeyboardButton('0', callback_data='h:0')],
+                [InlineKeyboardButton('1', callback_data='h:1'),
+                InlineKeyboardButton('2', callback_data='h:2'),
+                InlineKeyboardButton('3', callback_data='h:3'),
+                InlineKeyboardButton('4', callback_data='h:4')],
+
+                [InlineKeyboardButton('5', callback_data='h:5'),
+                InlineKeyboardButton('6', callback_data='h:6'),
+                InlineKeyboardButton('7', callback_data='h:7'),
+                InlineKeyboardButton('8', callback_data='h:8')]]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        if state == preferences.STATE_EDITING:
+            text = 'Quante ore hai lavorato quel giorno?'
+        else:
+            text = 'Quante ore hai lavorato oggi?'
+        updater.bot.send_message(chat_id=id, text=text, reply_markup=reply_markup)
+
+def editTime(update: Update, context: CallbackContext):
+    userId = getId(update)
+    if checkState(context, userId):
+        preferences.setState(userId, preferences.STATE_EDITING)
+        keyboard = [
+                [InlineKeyboardButton('1', callback_data='e:1'),
+                InlineKeyboardButton('2', callback_data='e:2'),
+                InlineKeyboardButton('3', callback_data='e:3'),
+                InlineKeyboardButton('4', callback_data='e:4')],
+                [InlineKeyboardButton('5', callback_data='e:5'),
+                InlineKeyboardButton('6', callback_data='e:6'),
+                InlineKeyboardButton('7', callback_data='e:7'),
+                InlineKeyboardButton('8', callback_data='e:8')],
+                [InlineKeyboardButton('9', callback_data='e:9'),
+                InlineKeyboardButton('10', callback_data='e:10'),
+                InlineKeyboardButton('11', callback_data='e:11'),
+                InlineKeyboardButton('12', callback_data='e:12')],
+                [InlineKeyboardButton('13', callback_data='e:13'),
+                InlineKeyboardButton('14', callback_data='e:14'),
+                InlineKeyboardButton('15', callback_data='e:15'),
+                InlineKeyboardButton('16', callback_data='e:16')],
+                [InlineKeyboardButton('17', callback_data='e:17'),
+                InlineKeyboardButton('18', callback_data='e:18'),
+                InlineKeyboardButton('19', callback_data='e:19'),
+                InlineKeyboardButton('20', callback_data='e:20')],
+                [InlineKeyboardButton('21', callback_data='e:21'),
+                InlineKeyboardButton('22', callback_data='e:22'),
+                InlineKeyboardButton('23', callback_data='e:23'),
+                InlineKeyboardButton('24', callback_data='e:24')],
+                [InlineKeyboardButton('25', callback_data='e:25'),
+                InlineKeyboardButton('26', callback_data='e:26'),
+                InlineKeyboardButton('27', callback_data='e:27'),
+                InlineKeyboardButton('28', callback_data='e:28')],
+                [InlineKeyboardButton('29', callback_data='e:29'),
+                InlineKeyboardButton('30', callback_data='e:30'),
+                InlineKeyboardButton('31', callback_data='e:31')]]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message_reply_text = 'Quale giorno vuoi modificare?'
+        context.bot.send_message(chat_id=userId, text=message_reply_text, reply_markup=reply_markup)
     
 
 #Save the selected number of hours and ask for the minutes
@@ -108,62 +155,82 @@ def setType(update: Update, context: CallbackContext):
 
 def buttonPressed(update: Update, context: CallbackContext):
     userId = getId(update)
-    print(update.callback_query.data)
+    context.bot.delete_message(chat_id=userId, message_id=update.effective_message.message_id)
+    
     parts: list[str] = update.callback_query.data.split(':')
     command: str = parts[0]
-    value: str = parts[1]
+    value = int(parts[1])
+
     if command == 'h':
-        runningOperations[userId] = {'h':value}
+        day = 0
+        if userId in runningOperations and 'e' in runningOperations[userId]:
+            day = runningOperations[userId]['e']
+        runningOperations[userId] = {'h':value, 'e':day}
         setMinutes(update, context)
     elif command == 'm':
         runningOperations[userId]['m'] = value
         hours = runningOperations[userId]['h']
         if int(hours) >= 8:
             runningOperations[userId]['t'] = TYPE_NO_REMAINING
-            writeToday(update, context)
+            day = runningOperations[userId]['e']
+            writeToday(update, context, day)
         else:
             setType(update, context)
     elif command == 't':
         runningOperations[userId]['t'] = value
-        writeToday(update, context)
+        day = runningOperations[userId]['e']
+        writeToday(update, context, day)
+    elif command == 'e':
+        runningOperations[userId] = {'e':int(value)}
+        insertTime(update, context)
 
 
-def writeToday(update: Update, context: CallbackContext):
+def writeToday(update: Update, context: CallbackContext, day: int):
+    userId = getId(update)
+    state = preferences.getState(userId)
+
     date = datetime.today()
     weekend = [4,5,6]
-    if date.weekday() in weekend:
+    if state == preferences.STATE_EDITING:
+        text = "Grazie!"
+    elif date.weekday() in weekend:
         text = 'Grazie! A Lunedì! (Spero)'
     else:
         text = 'Grazie! A domani!'
     
-    userId = getId(update)
     hours = runningOperations[userId]['h']
     minutes = runningOperations[userId]['m']
     type = runningOperations[userId]['t']
 
-
     filename = preferences.getUserFile(userId)
     wb = load_workbook(filename=filename)
     ws = wb.worksheets[date.month-1]
+
+    if day == 0:
+        dayToWrite = date.day
+    else:
+        dayToWrite = day
     
-    ws.cell(row=date.day+9, column=3).value = ("%s%s" % (hours, convertMinutes(int(minutes))))
+    time = ("%s%s" % (hours, convertMinutes(minutes)))
+    if time != '0':
+        ws.cell(row=dayToWrite+9, column=3).value = time
     ws['c4'] = preferences.loadConfig(userId, preferences.KEY_USER_NAME)
     ws['c6'] = preferences.loadConfig(userId, preferences.KEY_MANAGER_NAME)
 
-    if int(type) != TYPE_NO_REMAINING:
-        if int(minutes) == 0:
-            remainingHours = str(8 - int(hours))
+    if type != TYPE_NO_REMAINING:
+        if minutes == 0:
+            remainingHours = 8 - hours
             remainingMinutes = 0
         else:
-            remainingHours = str(7 - int(hours))
-            remainingMinutes = str(60 - int(minutes))
+            remainingHours = 7 - hours
+            remainingMinutes = 60 - minutes
 
-        if int(type) == TYPE_HOLIDAY:
+        if type == TYPE_HOLIDAY:
             remainingCol = 4
-        elif int(type) == TYPE_ILLNESS:
+        elif type == TYPE_ILLNESS:
             remainingCol = 5
 
-        ws.cell(row=date.day+9, column=remainingCol).value = ("%s%s" % (remainingHours, convertMinutes(int(remainingMinutes))))
+        ws.cell(row=dayToWrite+9, column=remainingCol).value = ("%d%s" % (remainingHours, convertMinutes(remainingMinutes)))
     
     wb.save(filename)
 
@@ -171,6 +238,7 @@ def writeToday(update: Update, context: CallbackContext):
         sendSheet(None, None, userId)
 
     runningOperations.pop(userId, None)
+    preferences.setState(userId, preferences.STATE_REGISTERED)
     context.bot.send_message(chat_id=getId(update), text=text)
 
 def isLastDayOfTheMonth(date: datetime):
@@ -178,7 +246,6 @@ def isLastDayOfTheMonth(date: datetime):
 
     
 def convertMinutes(minutes: int):
-    print(minutes)
     if minutes == 0:
         return ''
     elif minutes == 15:
@@ -188,23 +255,35 @@ def convertMinutes(minutes: int):
     elif minutes == 45:
         return ',75'
 
+def checkState(context: CallbackContext, userId: str):
+    state = preferences.loadConfig(userId, preferences.KEY_STATE)
+    if state != None and int(state) >= preferences.STATE_REGISTERED:
+        return True
+    else:
+        text = "Prima di continuare effettua la registrazione con il comando /register!"
+        context.bot.send_message(chat_id=userId, text=text)
+        return False
+
 
 def sendSheet(update: Update, context: CallbackContext, userId: str = None):
     if update:
         user = getId(update)
     else:
         user = userId
-    document = open(preferences.getUserFile(user), 'rb')
-    updater.bot.send_document(chat_id=user, document=document, filename='Foglio presenze.xlsx')
+
+    if checkState(context, user):
+        document = open(preferences.getUserFile(user), 'rb')
+        updater.bot.send_document(chat_id=user, document=document, filename='Foglio presenze.xlsx')
+
 
 
 def forwarder(update: Update, context: CallbackContext):
     userId = getId(update)
-    state = int(preferences.loadConfig(userId, preferences.KEY_STATE))
-    if state != None and state < preferences.STATE_REGISTERED:
-        continueRegistration(update, context, state)
+    state = preferences.loadConfig(userId, preferences.KEY_STATE)
+    if state != None and int(state) < preferences.STATE_REGISTERED:
+        continueRegistration(update, context, int(state))
     else:
-        text = "Usa uno dei comandi disponibili! Se non ti sei ancora registrato, inizia la registrazione eseguendo il comando /register!"
+        text = "Usa uno dei comandi disponibili! Se non ti sei ancora registrato, inizia la registrazione con il comando /register!"
         context.bot.send_message(chat_id=userId, text=text)
 
 # Script start
@@ -225,9 +304,17 @@ dispatcher.add_handler(startHandler)
 registerHandler = CommandHandler('register', register)
 dispatcher.add_handler(registerHandler)
 
+# /delete command
+deleteHandler = CommandHandler('delete', deleteUser)
+dispatcher.add_handler(deleteHandler)
+
 # /insert command
 insertHandler = CommandHandler('insert', insertTime)
 dispatcher.add_handler(insertHandler)
+
+# /edit command
+editHandler = CommandHandler('edit', editTime)
+dispatcher.add_handler(editHandler)
 
 # /send sheet command
 sendSheetHandler = CommandHandler('sendme', sendSheet)

@@ -33,3 +33,11 @@ def continueRegistration(update: Update, context: CallbackContext, state: int):
 
         context.bot.send_message(chat_id=userId, text=text)
 
+def deleteUser(update: Update, context: CallbackContext):
+    userId = stUtils.getId(update)
+    os.system('rm ' + preferences.getUserFile(userId))
+    preferences.deleteUserConfig(userId)
+    text = "Your data were deleted!"
+    context.bot.send_message(chat_id=userId, text=text)
+
+
