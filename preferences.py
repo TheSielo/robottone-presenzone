@@ -8,14 +8,17 @@ SHEET_PATH = 'documents/'
 
 CONFIG_FILE = 'config.ini'
 KEY_STATE = 'state'
+KEY_MODE = 'mode'
 KEY_USER_NAME = 'user_name'
 KEY_MANAGER_NAME = 'manager_name'
 
 STATE_NEW = 1
 STATE_USER_NAME = 2
 STATE_REGISTERED = 3
-STATE_INSERTING = 4
-STATE_EDITING = 5
+MODE_NOTHING = 0
+MODE_INSERTING = 1
+MODE_EDITING = 2
+MODE_DELETING = 3
 
 config = ConfigParser()
 config.read(CONFIG_FILE)
@@ -26,7 +29,8 @@ def getSections():
 def checkSection(section: str):
     if not config.has_section(section):
         config.add_section(section)
-    saveConfig(section, KEY_STATE, STATE_NEW)
+    setState(section, STATE_NEW)
+    setMode(section, MODE_NOTHING)
 
 # Store a value in preferences.
 def saveConfig(section, key, value):
@@ -57,3 +61,9 @@ def getState(userId: str) -> int:
 
 def setState(userId: str, value: int):
     saveConfig(userId, KEY_STATE, value)
+
+def getMode(userId: str) -> int:
+    return int(loadConfig(userId, KEY_MODE))
+
+def setMode(userId: str, value: int):
+    saveConfig(userId, KEY_MODE, value)

@@ -59,19 +59,19 @@ def start(update: Update, context: CallbackContext):
 
     update.message.reply_text(START_EXPLANATION)
 
+def insert(update: Update, context: CallbackContext):
+    userId = getId(update)
+    preferences.setMode(userId, preferences.MODE_INSERTING)
+    insertTime(update, context)
+
 #Add time for today
 def insertTime(update: Update, context: CallbackContext, userId: str = None):
     if update:
         id = getId(update)
     else:
         id = userId
-
     
     if checkState(context, id):
-        state = preferences.getState(id)
-        if state != preferences.STATE_EDITING:
-            preferences.setState(userId, preferences.STATE_INSERTING)
-
         keyboard = [[InlineKeyboardButton('0', callback_data='h:0')],
                 [InlineKeyboardButton('1', callback_data='h:1'),
                 InlineKeyboardButton('2', callback_data='h:2'),
@@ -81,10 +81,12 @@ def insertTime(update: Update, context: CallbackContext, userId: str = None):
                 [InlineKeyboardButton('5', callback_data='h:5'),
                 InlineKeyboardButton('6', callback_data='h:6'),
                 InlineKeyboardButton('7', callback_data='h:7'),
-                InlineKeyboardButton('8', callback_data='h:8')]]
+                InlineKeyboardButton('8', callback_data='h:8')],
+                [InlineKeyboardButton('Non compilare questo giorno', callback_data='d:1')]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        if state == preferences.STATE_EDITING:
+        mode = preferences.getMode(id)
+        if mode == preferences.MODE_EDITING:
             text = 'Quante ore hai lavorato quel giorno?'
         else:
             text = 'Quante ore hai lavorato oggi?'
@@ -93,7 +95,7 @@ def insertTime(update: Update, context: CallbackContext, userId: str = None):
 def editTime(update: Update, context: CallbackContext):
     userId = getId(update)
     if checkState(context, userId):
-        preferences.setState(userId, preferences.STATE_EDITING)
+        preferences.setMode(userId, preferences.MODE_EDITING)
         keyboard = [
                 [InlineKeyboardButton('1', callback_data='e:1'),
                 InlineKeyboardButton('2', callback_data='e:2'),
@@ -183,25 +185,19 @@ def buttonPressed(update: Update, context: CallbackContext):
     elif command == 'e':
         runningOperations[userId] = {'e':int(value)}
         insertTime(update, context)
+    elif command == 'd':
+        preferences.setMode(userId, preferences.MODE_DELETING)
+        day = 0
+        if userId in runningOperations and 'e' in runningOperations[userId]:
+            day = runningOperations[userId]['e']
+        writeToday(update, context, day)
 
 
 def writeToday(update: Update, context: CallbackContext, day: int):
     userId = getId(update)
-    state = preferences.getState(userId)
+    mode = preferences.getMode(userId)
 
     date = datetime.today()
-    weekend = [4,5,6]
-    if state == preferences.STATE_EDITING:
-        text = "Grazie!"
-    elif date.weekday() in weekend:
-        text = 'Grazie! A Lunedì! (Spero)'
-    else:
-        text = 'Grazie! A domani!'
-    
-    hours = runningOperations[userId]['h']
-    minutes = runningOperations[userId]['m']
-    type = runningOperations[userId]['t']
-
     filename = preferences.getUserFile(userId)
     wb = load_workbook(filename=filename)
     ws = wb.worksheets[date.month-1]
@@ -210,35 +206,56 @@ def writeToday(update: Update, context: CallbackContext, day: int):
         dayToWrite = date.day
     else:
         dayToWrite = day
-    
-    time = ("%s%s" % (hours, convertMinutes(minutes)))
-    if time != '0':
-        ws.cell(row=dayToWrite+9, column=3).value = time
+
     ws['c4'] = preferences.loadConfig(userId, preferences.KEY_USER_NAME)
     ws['c6'] = preferences.loadConfig(userId, preferences.KEY_MANAGER_NAME)
+    
+    if mode == preferences.MODE_DELETING:
+        ws.cell(row=dayToWrite+9, column=3).value = ''
+        ws.cell(row=dayToWrite+9, column=4).value = ''
+        ws.cell(row=dayToWrite+9, column=5).value = ''
+    else:
+        hours = runningOperations[userId]['h']
+        minutes = runningOperations[userId]['m']
+        type = runningOperations[userId]['t']
 
-    if type != TYPE_NO_REMAINING:
-        if minutes == 0:
-            remainingHours = 8 - hours
-            remainingMinutes = 0
+        time = ('%s%s' % (hours, convertMinutes(minutes)))
+        if time != '0':
+            ws.cell(row=dayToWrite+9, column=3).value = time
+
+        if type != TYPE_NO_REMAINING:
+            if minutes == 0:
+                remainingHours = 8 - hours
+                remainingMinutes = 0
+            else:
+                remainingHours = 7 - hours
+                remainingMinutes = 60 - minutes
+
+            if type == TYPE_HOLIDAY:
+                remainingCol = 4
+                emptyCol = 5
+            elif type == TYPE_ILLNESS:
+                remainingCol = 5
+                emptyCol = 4
+
+            ws.cell(row=dayToWrite+9, column=remainingCol).value = ('%d%s' % (remainingHours, convertMinutes(remainingMinutes)))
+            ws.cell(row=dayToWrite+9, column=emptyCol).value = ''
         else:
-            remainingHours = 7 - hours
-            remainingMinutes = 60 - minutes
-
-        if type == TYPE_HOLIDAY:
-            remainingCol = 4
-        elif type == TYPE_ILLNESS:
-            remainingCol = 5
-
-        ws.cell(row=dayToWrite+9, column=remainingCol).value = ("%d%s" % (remainingHours, convertMinutes(remainingMinutes)))
+            ws.cell(row=dayToWrite+9, column=4).value = ''
+            ws.cell(row=dayToWrite+9, column=5).value = ''
     
     wb.save(filename)
-
-    if isLastDayOfTheMonth(date):
-        sendSheet(None, None, userId)
-
     runningOperations.pop(userId, None)
-    preferences.setState(userId, preferences.STATE_REGISTERED)
+    preferences.setMode(userId, preferences.MODE_NOTHING)
+
+    weekend = [4,5,6]
+    if mode == preferences.MODE_EDITING:
+        text = "Grazie!"
+    elif date.weekday() in weekend:
+        text = 'Grazie! A Lunedì! (Spero)'
+    else:
+        text = 'Grazie! A domani!'
+        
     context.bot.send_message(chat_id=getId(update), text=text)
 
 def isLastDayOfTheMonth(date: datetime):
@@ -309,7 +326,7 @@ deleteHandler = CommandHandler('delete', deleteUser)
 dispatcher.add_handler(deleteHandler)
 
 # /insert command
-insertHandler = CommandHandler('insert', insertTime)
+insertHandler = CommandHandler('insert', insert)
 dispatcher.add_handler(insertHandler)
 
 # /edit command
