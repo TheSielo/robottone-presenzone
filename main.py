@@ -343,7 +343,11 @@ updater.start_polling()
 def sendQuestions():
     users = preferences.getSections()
     for user in users:
-       insertTime(None, None, userId=user) 
+        state = preferences.getState(user)
+        if state == preferences.STATE_REGISTERED:
+            runningOperations.pop(user, None)
+            preferences.setMode(user, preferences.MODE_NOTHING)
+            insertTime(None, None, userId=user) 
 
 
 TIME = '19:00'
