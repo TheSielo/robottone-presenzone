@@ -6,6 +6,14 @@ from telegram.ext import CallbackContext, CommandHandler, Updater, CallbackQuery
 import stUtils
 import preferences
 
+def checkState(context: CallbackContext, userId: str):
+    state = preferences.loadConfig(userId, preferences.KEY_STATE)
+    if state != None and int(state) >= preferences.STATE_REGISTERED:
+        return True
+    else:
+        text = "Prima di continuare effettua la registrazione con il comando /register!"
+        context.bot.send_message(chat_id=userId, text=text)
+        return False
 
 def register(update: Update, context: CallbackContext):
     userId = stUtils.getId(update)
