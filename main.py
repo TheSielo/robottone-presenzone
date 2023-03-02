@@ -69,7 +69,7 @@ def sendQuestions():
             insertTime(None, None, userId=user) 
 
 
-TIME = '22:28'
+TIME = '18:30'
 schedule.every().monday.at(TIME).do(sendQuestions)
 schedule.every().tuesday.at(TIME).do(sendQuestions)
 schedule.every().wednesday.at(TIME).do(sendQuestions)
