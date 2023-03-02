@@ -26,7 +26,7 @@ bot.updater = Updater(token, use_context=True)
 dispatcher = bot.updater.dispatcher
 
 #Analyze all messages that are not commands
-forwardHandler = MessageHandler(Filters.text & (~Filters.command), forwarder)
+forwardHandler = MessageHandler(filters.text & (~filters.command), forwarder)
 dispatcher.add_handler(forwardHandler)
 
 # Buttons callback

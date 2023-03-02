@@ -9,7 +9,11 @@ from preferences import setMode, getMode, loadConfig, getUserFile
 from preferences import MODE_INSERTING, MODE_EDITING, MODE_NOTHING, MODE_DELETING, KEY_STATE, STATE_REGISTERED
 from keyboards import dayKeyboard, hoursKeyboard, minutesKeyboard, ferieKeyboard
 from spreadsheet import writeToday, TYPE_NO_REMAINING
+<<<<<<< HEAD
 import bot
+=======
+from bot import updater
+>>>>>>> 463206cf0fb8c8791d03cc95f10c9f96654221de
 
 #Show handy instruction about using this bot.
 def start(update: Update, context: CallbackContext):
@@ -34,7 +38,11 @@ def insertTime(update: Update, context: CallbackContext, userId: str = None):
             text = 'Quante ore hai lavorato quel giorno?'
         else:
             text = 'Quante ore hai lavorato oggi?'
+<<<<<<< HEAD
         bot.updater.bot.send_message(chat_id=id, text=text, reply_markup=reply_markup)
+=======
+        updater.bot.send_message(chat_id=id, text=text, reply_markup=reply_markup)
+>>>>>>> 463206cf0fb8c8791d03cc95f10c9f96654221de
 
 def editTime(update: Update, context: CallbackContext):
     userId = getId(update)
